@@ -1,6 +1,7 @@
 // cashier_frontend/store/products.js
 import { defineStore } from 'pinia';
 import { useApiFetch } from '~/composables/useApiFetch'; // Import custom composable
+import { useAuthStore } from './auth';
 
 export const useProductStore = defineStore('products', {
   state: () => ({
@@ -9,14 +10,46 @@ export const useProductStore = defineStore('products', {
     loading: false,
     error: null,
   }),
+
+
+  
   actions: {
-    async fetchProducts() { // Ganti nama menjadi fetchProductsData agar tidak bentrok dengan nama di useAsyncData
+    async addSubCategory(payload) {
+      this.loading = true;
+      this.error = null;
+      try {
+        // Hapus useRuntimeConfig dan logika manual baseUrl & headers di sini.
+        // useApiFetch akan menangani otorisasi dan base URL secara otomatis.
+
+        const { data: newSubCategory } = await useApiFetch('subcategories/', { // <--- GUNAKAN useApiFetch DI SINI
+          method: 'POST',
+          body: payload, // Payload sudah sesuai {name, category}
+        });
+
+        console.log('Sub-category added:', newSubCategory.value); // Akses data dengan .value
+        await this.fetchCategories(); // Refresh kategori
+        return true;
+      } catch (error) {
+        console.error('Error adding sub-category:', error);
+        if (error.statusCode === 401) {
+          this.error = 'Anda tidak memiliki izin untuk melakukan tindakan ini. Silakan login kembali.';
+        } else {
+          // Akses pesan error dari response data jika tersedia
+          this.error = error.data?.detail || error.data?.message || 'Gagal menambahkan sub-kategori. Periksa koneksi atau input Anda.';
+        }
+        return false;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async fetchProducts(filters = {}) { // Ganti nama menjadi fetchProductsData agar tidak bentrok dengan nama di useAsyncData
       this.loading = true;
       this.error = null;
       try {
         const apiClient = useApiClient();
-        const response = await apiClient('/products/');
-        this.products = response; 
+        // PASTIKAN BARIS INI BENAR: Meneruskan filters sebagai paramsz
+        const response = await apiClient('/products', { params: filters });
+        this.products = response;
       } catch (error) {
         this.error = error;
         console.error('Error fetching products:', error);
@@ -24,13 +57,24 @@ export const useProductStore = defineStore('products', {
         this.loading = false;
       }
     },
-    async fetchCategories() { // Ganti nama menjadi fetchCategoriesData
-      this.loading = true; 
+    async fetchCategories() {
+      this.loading = true;
       this.error = null;
       try {
         const apiClient = useApiClient();
-        const response = await apiClient('/categories/'); 
-        this.categories = response; 
+        const response = await apiClient('/categories');
+        
+        // --- PERBAIKAN KRITIS DI SINI ---
+        // Memastikan `response` adalah array dan setiap elemen adalah objek valid dengan 'id'
+        if (Array.isArray(response)) {
+          this.categories = response.filter(cat => cat && typeof cat === 'object' && 'id' in cat);
+        } else {
+          // Fallback jika API tidak mengembalikan array (misalnya, objek data)
+          // Anda mungkin perlu menyesuaikan ini jika struktur respons API berbeda
+          console.warn('API /categories expected to return an array, but received:', response);
+          this.categories = []; // Atur ke array kosong untuk mencegah error
+        }
+        
       } catch (error) {
         this.error = error;
         console.error('Error fetching categories and subcategories:', error);
@@ -121,12 +165,18 @@ export const useProductStore = defineStore('products', {
       },
   },
   getters: {
-    getSubcategoriesByCategoryId: (state) => (categoryId) => {
-      if (!categoryId) return [];
-      const category = state.categories.find(cat => cat.id == categoryId);
-      return category && category.subcategories ? category.subcategories : [];
-    },
+  // Getter ini adalah kunci untuk mendapatkan sub-kategori yang relevan
+  getSubcategoriesByCategoryId: (state) => (categoryId) => {
+    if (!categoryId) {
+      return []; // Jika tidak ada categoryId yang dipilih, kembalikan array kosong
+    }
+    // Mencari objek kategori utama berdasarkan categoryId
+    const category = state.categories.find(cat => cat.id == categoryId);
+    // Mengembalikan array subcategories dari objek kategori yang ditemukan
+    // Jika kategori tidak ditemukan atau tidak memiliki subcategories, kembalikan array kosong
+    return category && category.subcategories ? category.subcategories : [];
   },
+},
 
    persist: true
    

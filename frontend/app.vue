@@ -4,12 +4,12 @@ import { NuxtPage } from '#components';
 </script>
 
 <template>
-  <div>
+  <client-only>
 <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
     
 
    
-  </div>
+  </client-only>
 </template>

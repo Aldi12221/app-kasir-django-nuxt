@@ -24,9 +24,10 @@ class SubCategory(models.Model):
 class Product(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=60, decimal_places=2 ,default=0.00)
     stock = models.IntegerField(default=0)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
     sub_category = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_by_subcategory')
     image = models.ImageField(upload_to='product_images/', blank=True, null=True) # Perlu Pillow: pip install Pillow
     is_active = models.BooleanField(default=True)

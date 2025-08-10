@@ -45,8 +45,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pelanggan</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+            
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
@@ -59,18 +58,7 @@
                 {{ order.status || 'N/A' }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ order.customer_name || 'Umum' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <button @click="viewOrderDetails(order)" class="text-blue-600 hover:text-blue-900 mr-3">
-                <Icon name="mdi:eye" class="text-lg" />
-              </button>
-              <button @click="editOrder(order)" class="text-indigo-600 hover:text-indigo-900 mr-3">
-                <Icon name="mdi:pencil" class="text-lg" />
-              </button>
-              <button @click="confirmDeleteOrder(order.id)" class="text-red-600 hover:text-red-900">
-                <Icon name="mdi:delete" class="text-lg" />
-              </button>
-            </td>
+            
           </tr>
         </tbody>
       </table>
@@ -163,29 +151,7 @@
       </div>
     </div>
 
-    <div v-if="showDeleteConfirmModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
-        <h3 class="text-lg font-bold mb-4">Konfirmasi Hapus</h3>
-        <p class="mb-6">Anda yakin ingin menghapus transaksi #{{ orderToDelete }} ini?</p>
-        <p v-if="orderStore.error" class="text-red-500 text-sm mb-4">{{ orderStore.error.message }}</p>
-        <div class="flex justify-center gap-4">
-          <button
-            @click="showDeleteConfirmModal = false; orderToDelete = null"
-            class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded hover:bg-gray-400 focus:outline-none focus:shadow-outline"
-            :disabled="orderStore.loading"
-          >
-            Batal
-          </button>
-          <button
-            @click="deleteOrder"
-            class="bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-700 focus:outline-none focus:shadow-outline"
-            :disabled="orderStore.loading"
-          >
-            {{ orderStore.loading ? 'Menghapus...' : 'Ya, Hapus' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    
   </div>
 </template>
 
@@ -469,4 +435,4 @@ thead th {
   td:nth-of-type(5):before { content: "Pelanggan:"; }
   td:nth-of-type(6):before { content: "Aksi:"; }
 }
-</style>
+</style>  

@@ -1,11 +1,14 @@
-// cashier_frontend/store/cart.js
 import { defineStore } from 'pinia';
-import { useProductStore } from '~/store/products'; // Pastikan path ke product store Anda benar
+// useProductStore tidak lagi diperlukan di sini untuk addToCart/updateQuantity
+// karena kita akan melewati objek produk lengkap.
+// import { useProductStore } from '~/store/products'; 
 import { useApiClient } from '~/composables/useApiFetch'; // Import useApiClient untuk checkout
 
 export const useCartStore = defineStore('cart', {
     state: () => ({
-        items: [], // Array of cart items { id, name, price, quantity, stock, image }
+        // Format item di keranjang akan menyimpan detail produk yang diperlukan
+        // untuk menghindari pencarian ulang di productStore
+        items: [], // Array of cart items { id, name, price, quantity, stock, image, ...other_product_details }
     }),
 
     getters: {
@@ -24,115 +27,123 @@ export const useCartStore = defineStore('cart', {
     },
 
     actions: {
-        async addToCart(productId, quantity = 1) { // Tambahkan 'async' karena mungkin perlu fetch
-            const productStore = useProductStore();
-
-            // PENTING: Pastikan produk sudah dimuat. Jika belum, coba muat.
-            if (!productStore.products || productStore.products.length === 0) {
-                console.warn("Product data not loaded, attempting to fetch...");
-                await productStore.fetchProducts(); // Coba muat ulang produk
-                if (!productStore.products || productStore.products.length === 0) {
-                    console.error("Product data still not available after fetch attempt.");
-                    return; // Gagal mendapatkan data produk, hentikan
-                }
-            }
-
-            const product = productStore.products.find(p => p.id === productId);
-
-            if (!product) {
-                console.error("Product with ID", productId, "not found in productStore products.");
-                alert("Produk tidak ditemukan.");
+        /**
+         * Menambahkan produk ke keranjang atau menambah kuantitasnya jika sudah ada.
+         * Ini menerima objek produk lengkap dari hasil API (misalnya dari scan barcode).
+         * @param {Object} productToAdd - Objek produk lengkap dari API (misalnya {id, name, price, stock, image, ...}).
+         * @param {number} quantityToAdd - Kuantitas yang ingin ditambahkan (default 1).
+         */
+        addToCart(productToAdd, quantityToAdd = 1) {
+            // Validasi dasar: pastikan productToAdd adalah objek dan memiliki ID serta stok
+            if (!productToAdd || typeof productToAdd.id === 'undefined' || typeof productToAdd.stock === 'undefined') {
+                console.error("Invalid product object provided to addToCart:", productToAdd);
+                alert("Produk tidak valid untuk ditambahkan ke keranjang.");
                 return;
             }
 
-            // Pastikan harga produk adalah angka, konversi jika perlu
-            const productPrice = parseFloat(product.price);
+            const existingItem = this.items.find(item => item.id === productToAdd.id);
+            const productPrice = parseFloat(productToAdd.price);
+
             if (isNaN(productPrice)) {
-                console.error(`Invalid price for product ${product.name}: ${product.price}`);
+                console.error(`Invalid price for product ${productToAdd.name}: ${productToAdd.price}`);
                 alert("Harga produk tidak valid.");
                 return;
             }
 
-            const existingItem = this.items.find(item => item.id === productId);
-
             if (existingItem) {
-                if (existingItem.quantity + quantity <= product.stock) {
-                    existingItem.quantity += quantity;
+                // Jika produk sudah ada, tambahkan kuantitasnya
+                if (existingItem.quantity + quantityToAdd <= productToAdd.stock) {
+                    existingItem.quantity += quantityToAdd;
+                    console.log(`Increased quantity for "${productToAdd.name}". New quantity: ${existingItem.quantity}`);
                 } else {
-                    alert(`Stok ${product.name} hanya ${product.stock}, tidak bisa menambah lebih banyak.`);
-                    return; // Hentikan jika stok tidak cukup
+                    alert(`Stok ${productToAdd.name} hanya ${productToAdd.stock}, tidak bisa menambah lebih banyak.`);
+                    return;
                 }
             } else {
-                if (quantity <= product.stock) {
-                    // Tambahkan properti 'price' secara eksplisit ke item
+                // Jika produk belum ada, tambahkan sebagai item baru ke keranjang
+                if (quantityToAdd <= productToAdd.stock) {
+                    // Simpan semua detail produk yang relevan langsung di item keranjang
                     this.items.push({
-                        id: product.id,
-                        name: product.name,
-                        price: parseFloat(product.price), // Gunakan harga yang sudah dikonversi
-                        quantity: quantity,
-                        stock: product.stock, // Simpan stok untuk validasi di kemudian hari
-                        image: product.image // Simpan URL gambar
+                        id: productToAdd.id,
+                        name: productToAdd.name,
+                        price: productPrice, // Gunakan harga yang sudah dikonversi
+                        quantity: quantityToAdd,
+                        stock: productToAdd.stock, // Simpan stok produk untuk validasi di kemudian hari
+                        image: productToAdd.image, // Simpan URL gambar
+                        // Anda bisa menambahkan properti lain dari productToAdd di sini jika diperlukan di keranjang/checkout
+                        category: productToAdd.category,
+                        sub_category: productToAdd.sub_category,
+                        category_name: productToAdd.category_name,
+                        sub_category_name: productToAdd.sub_category_name,
                     });
+                    console.log(`Added new product "${productToAdd.name}" to cart.`);
                 } else {
-                    alert(`Stok ${product.name} hanya ${product.stock}, tidak bisa menambah lebih banyak.`);
-                    return; // Hentikan jika stok tidak cukup
-                }
-            }
-            this.saveCart(); // Simpan perubahan ke localStorage
-        },
-
-        removeFromCart(productId) {
-            this.items = this.items.filter(item => item.id !== productId);
-            this.saveCart(); // Simpan perubahan ke localStorage
-        },
-
-        async updateQuantity(productId, change) { // Tambahkan 'async' jika fetchProducts dipanggil
-            const productStore = useProductStore();
-
-            // Pastikan produk sudah dimuat
-            if (!productStore.products || productStore.products.length === 0) {
-                console.warn("Product data not loaded for quantity update, attempting to fetch...");
-                await productStore.fetchProducts();
-                if (!productStore.products || productStore.products.length === 0) {
-                    console.error("Product data still not available after fetch attempt.");
+                    alert(`Stok ${productToAdd.name} hanya ${productToAdd.stock}, tidak bisa menambah lebih banyak.`);
                     return;
                 }
             }
+            this.saveCart(); // Simpan perubahan ke localStorage
+        },
 
+        /**
+         * Mengurangi kuantitas produk di keranjang atau menghapusnya jika kuantitas menjadi 0.
+         * @param {number} productId - ID produk yang akan dihapus/dikurangi dari keranjang.
+         * @param {number} change - Jumlah perubahan kuantitas (misal -1 untuk mengurangi).
+         */
+        updateQuantity(productId, change) {
             const item = this.items.find(item => item.id === productId);
-            const product = productStore.products.find(p => p.id === productId);
 
-            if (item && product) {
+            if (item) {
                 const newQuantity = item.quantity + change;
-                if (newQuantity > 0 && newQuantity <= product.stock) {
+                // Validasi terhadap stok yang disimpan di item keranjang
+                if (newQuantity > 0 && newQuantity <= item.stock) { 
                     item.quantity = newQuantity;
+                    console.log(`Updated quantity for product ID ${productId}. New quantity: ${item.quantity}`);
                 } else if (newQuantity <= 0) {
                     this.removeFromCart(productId); // Hapus jika kuantitas jadi 0 atau kurang
-                } else if (newQuantity > product.stock) {
-                    alert(`Stok ${product.name} hanya ${product.stock}, tidak bisa menambah lebih banyak.`);
+                    console.log(`Removed product ID ${productId} due to quantity <= 0.`);
+                } else if (newQuantity > item.stock) {
+                    alert(`Stok ${item.name} hanya ${item.stock}, tidak bisa menambah lebih banyak.`);
                 }
+            } else {
+                console.warn(`Attempted to update quantity for product ID ${productId} but it was not found in cart.`);
             }
             this.saveCart(); // Simpan perubahan ke localStorage
         },
 
-        clearCart() {
-            this.items = [];
+        /**
+         * Menghapus produk sepenuhnya dari keranjang.
+         * @param {number} productId - ID produk yang akan dihapus.
+         */
+        removeFromCart(productId) {
+            this.items = this.items.filter(item => item.id !== productId);
+            console.log(`Removed product ID ${productId} from cart.`);
             this.saveCart(); // Simpan perubahan ke localStorage
         },
 
-        // Action baru untuk menyimpan ke localStorage
+        /**
+         * Mengosongkan seluruh keranjang belanja.
+         */
+        clearCart() {
+            this.items = [];
+            console.log('Cart cleared.');
+            this.saveCart(); // Simpan perubahan ke localStorage
+        },
+
+        // Action untuk menyimpan ke localStorage
         saveCart() {
             if (process.client) { // Hanya berjalan di browser
                 localStorage.setItem('cartItems', JSON.stringify(this.items));
             }
         },
 
-        // Action baru untuk memuat dari localStorage
+        // Action untuk memuat dari localStorage
         loadCart() {
             if (process.client) {
                 const storedCart = localStorage.getItem('cartItems');
                 if (storedCart) {
                     this.items = JSON.parse(storedCart);
+                    console.log('Cart loaded from localStorage.');
                 }
             }
         },
@@ -146,11 +157,13 @@ export const useCartStore = defineStore('cart', {
             }
 
             const orderData = {
-                customer_name: customerName,
+                // Asumsi backend Anda mengharapkan user ID dari token JWT
+                // Jika tidak, Anda mungkin perlu menambahkan id_user di sini
+                customer_name: customerName, // Jika backend Anda punya field customer_name
                 payment_method: paymentMethod,
                 total_amount: totalAmountPaid,
                 items: this.items.map(item => ({
-                    product: item.id, // Sesuaikan dengan field 'product' di serializer Django Anda
+                    product: item.id, // Kirim hanya ID produk
                     quantity: item.quantity,
                     price_at_sale: item.price, // Harga produk saat transaksi
                 })),

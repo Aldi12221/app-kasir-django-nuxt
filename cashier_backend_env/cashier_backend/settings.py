@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken', 
     'rest_framework',
     'corsheaders',
-    'django_filter', # Tambahkan ini
+    # 'django_filter', # Tambahkan ini
     'products',    # Akan kita buat nanti
     'orders',
     'users',      
@@ -72,6 +72,7 @@ CORS_ALLOW_METHODS = [
     'OPTIONS',
     'POST',
     'PUT',
+    'PATCH',
 ]
 
 CORS_ALLOW_HEADERS = [

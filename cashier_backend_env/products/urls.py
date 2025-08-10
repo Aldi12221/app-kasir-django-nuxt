@@ -9,6 +9,6 @@ router.register(r'subcategories', SubCategoryViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    # Endpoint best_sellers akan otomatis terdaftar sebagai /api/products/best_sellers/
+    # Endpoint best_sellers akan otomatis terdaftar sebagai /   /products/best_sellers/
     # karena kita menggunakannya sebagai @action pada ProductViewSet.
 ]
